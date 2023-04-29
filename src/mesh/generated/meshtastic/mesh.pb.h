@@ -93,6 +93,12 @@ typedef enum _meshtastic_HardwareModel {
     meshtastic_HardwareModel_BETAFPV_2400_TX = 45,
     /* BetaFPV ExpressLRS "Nano" TX Module 900MHz with ESP32 CPU */
     meshtastic_HardwareModel_BETAFPV_900_NANO_TX = 46,
+    /* Custom DIY device R6822DH-5W based on @NanoVHF schematics with ESP32 CPU */
+    meshtastic_HardwareModel_UT2UH_R6822DH = 47,
+    /* UT2UH device with ESP32 CPU and SX1278 */
+    meshtastic_HardwareModel_UT2UH_K46V1 = 48,
+    /* UT2UH device with ESP32 CPU and SX1262 */
+    meshtastic_HardwareModel_UT2UH_K46V2 = 49,
     /* ------------------------------------------------------------------------------------------------------------------------------------------
  Reserved ID For developing private Ports. These will show up in live traffic sparsely, so we can use a high number. Keep it within 8 bits.
  ------------------------------------------------------------------------------------------------------------------------------------------ */

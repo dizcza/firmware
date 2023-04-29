@@ -33,6 +33,9 @@ jobs:
           - board: m5stack-coreink
           - board: tbeam-s3-core
           - board: tlora-t3s3-v1
+          - board: ut2uh-k46v1
+          - board: ut2uh-k46v2
+          - board: ut2uh-r6822dh
 
     runs-on: ubuntu-latest
     steps:

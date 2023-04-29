@@ -160,7 +160,7 @@ void NodeDB::installDefaultConfig()
     config.lora.tx_enabled =
         true; // FIXME: maybe false in the future, and setting region to enable it. (unset region forces it off)
     config.lora.override_duty_cycle = false;
-    config.lora.region = meshtastic_Config_LoRaConfig_RegionCode_UNSET;
+    config.lora.region = meshtastic_Config_LoRaConfig_RegionCode_UA_433;
     config.lora.modem_preset = meshtastic_Config_LoRaConfig_ModemPreset_LONG_FAST;
     config.lora.hop_limit = HOP_RELIABLE;
     config.position.gps_enabled = true;

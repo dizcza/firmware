@@ -102,6 +102,12 @@
 #define HW_VENDOR meshtastic_HardwareModel_NANO_G1_EXPLORER
 #elif defined(BETAFPV_900_TX_NANO)
 #define HW_VENDOR meshtastic_HardwareModel_BETAFPV_900_NANO_TX
+#elif defined(UT2UH_R6822DH)
+#define HW_VENDOR meshtastic_HardwareModel_UT2UH_R6822DH
+#elif defined(UT2UH_K46V1)
+#define HW_VENDOR meshtastic_HardwareModel_UT2UH_K46V1
+#elif defined(UT2UH_K46V2)
+#define HW_VENDOR meshtastic_HardwareModel_UT2UH_K46V2
 #endif
 
 //

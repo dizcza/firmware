@@ -28,6 +28,7 @@ template <typename T> bool SX126xInterface<T>::init()
 
 #ifndef SX126X_E22
     float tcxoVoltage = 0; // None - we use an XTAL
+    lora.XTAL = true;
 #else
     // Use DIO3 to power tcxo per https://github.com/jgromes/RadioLib/issues/12#issuecomment-520695575
     float tcxoVoltage = 1.8;
@@ -35,6 +36,21 @@ template <typename T> bool SX126xInterface<T>::init()
     bool useRegulatorLDO = false; // Seems to depend on the connection to pin 9/DCC_SW - if an inductor DCDC?
 
     RadioLibInterface::init();
+
+#if defined SX126X_R6822DH
+    // set RF switch configuration for R6822DH
+    static const uint8_t rfswitch_pins[] =
+                            {SX126X_RXEN, RADIOLIB_NC,  RADIOLIB_NC,};
+    static const Module::RfSwitchMode_t rfswitch_table[] = {
+        {Module::MODE_IDLE, {HIGH, LOW}},
+        {Module::MODE_RX,   {HIGH, LOW}},
+        {Module::MODE_TX,   {LOW, HIGH}},
+        END_OF_MODE_TABLE,
+    };
+    // set RF switch control configuration
+    // this has to be done prior to calling begin()
+    lora.setRfSwitchTable(rfswitch_pins, rfswitch_table);
+#endif
 
     if (power == 0)
         power = SX126X_MAX_POWER;
@@ -67,7 +83,7 @@ template <typename T> bool SX126xInterface<T>::init()
         res = lora.setDio2AsRfSwitch(true);
 #endif
 
-#if defined(SX126X_TXEN) && (SX126X_TXEN != RADIOLIB_NC)
+#if defined(SX126X_TXEN) && (SX126X_TXEN != RADIOLIB_NC) || defined(SX126X_RXEN) && (SX126X_RXEN != RADIOLIB_NC)
     // lora.begin sets Dio2 as RF switch control, which is not true if we are manually controlling RX and TX
     if (res == RADIOLIB_ERR_NONE) {
         res = lora.setDio2AsRfSwitch(false);
