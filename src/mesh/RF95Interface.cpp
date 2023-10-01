@@ -11,9 +11,9 @@
 
 #define POWER_DEFAULT 17 // How much power to use if the user hasn't set a power level
 
-RF95Interface::RF95Interface(RADIOLIB_PIN_TYPE cs, RADIOLIB_PIN_TYPE irq, RADIOLIB_PIN_TYPE rst, RADIOLIB_PIN_TYPE busy,
-                             SPIClass &spi)
-    : RadioLibInterface(cs, irq, rst, busy, spi)
+RF95Interface::RF95Interface(LockingArduinoHal *hal, RADIOLIB_PIN_TYPE cs, RADIOLIB_PIN_TYPE irq, RADIOLIB_PIN_TYPE rst,
+                             RADIOLIB_PIN_TYPE busy)
+    : RadioLibInterface(hal, cs, irq, rst, busy)
 {
     LOG_WARN("RF95Interface(cs=%d, irq=%d, rst=%d, busy=%d)\n", cs, irq, rst, busy);
 }
@@ -192,7 +192,7 @@ bool RF95Interface::isChannelActive()
     return false;
 }
 
-/** Could we send right now (i.e. either not actively receving or transmitting)? */
+/** Could we send right now (i.e. either not actively receiving or transmitting)? */
 bool RF95Interface::isActivelyReceiving()
 {
     return lora->isReceiving();
@@ -201,7 +201,7 @@ bool RF95Interface::isActivelyReceiving()
 bool RF95Interface::sleep()
 {
     // put chipset into sleep mode
-    setStandby(); // First cancel any active receving/sending
+    setStandby(); // First cancel any active receiving/sending
     lora->sleep();
 
     return true;

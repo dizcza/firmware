@@ -15,6 +15,12 @@ PB_BIND(meshtastic_ModuleConfig_MQTTConfig, meshtastic_ModuleConfig_MQTTConfig, 
 PB_BIND(meshtastic_ModuleConfig_RemoteHardwareConfig, meshtastic_ModuleConfig_RemoteHardwareConfig, AUTO)
 
 
+PB_BIND(meshtastic_ModuleConfig_NeighborInfoConfig, meshtastic_ModuleConfig_NeighborInfoConfig, AUTO)
+
+
+PB_BIND(meshtastic_ModuleConfig_DetectionSensorConfig, meshtastic_ModuleConfig_DetectionSensorConfig, AUTO)
+
+
 PB_BIND(meshtastic_ModuleConfig_AudioConfig, meshtastic_ModuleConfig_AudioConfig, AUTO)
 
 
@@ -34,6 +40,13 @@ PB_BIND(meshtastic_ModuleConfig_TelemetryConfig, meshtastic_ModuleConfig_Telemet
 
 
 PB_BIND(meshtastic_ModuleConfig_CannedMessageConfig, meshtastic_ModuleConfig_CannedMessageConfig, AUTO)
+
+
+PB_BIND(meshtastic_ModuleConfig_AmbientLightingConfig, meshtastic_ModuleConfig_AmbientLightingConfig, AUTO)
+
+
+PB_BIND(meshtastic_RemoteHardwarePin, meshtastic_RemoteHardwarePin, AUTO)
+
 
 
 

@@ -1,10 +1,14 @@
 #include "configuration.h"
 #include "input/InputBroker.h"
 #include "input/RotaryEncoderInterruptImpl1.h"
+#include "input/TrackballInterruptImpl1.h"
 #include "input/UpDownInterruptImpl1.h"
 #include "input/cardKbI2cImpl.h"
+#include "input/kbMatrixImpl.h"
 #include "modules/AdminModule.h"
 #include "modules/CannedMessageModule.h"
+#include "modules/DetectionSensorModule.h"
+#include "modules/NeighborInfoModule.h"
 #include "modules/NodeInfoModule.h"
 #include "modules/PositionModule.h"
 #include "modules/RemoteHardwareModule.h"
@@ -22,12 +26,12 @@
 #endif
 #ifdef ARCH_ESP32
 #include "modules/esp32/AudioModule.h"
-#include "modules/esp32/RangeTestModule.h"
 #include "modules/esp32/StoreForwardModule.h"
 #endif
-#if defined(ARCH_ESP32) || defined(ARCH_NRF52)
+#if defined(ARCH_ESP32) || defined(ARCH_NRF52) || defined(ARCH_RP2040)
 #include "modules/ExternalNotificationModule.h"
-#if (defined(ARCH_ESP32) || defined(ARCH_NRF52)) && !defined(TTGO_T_ECHO) && !defined(CONFIG_IDF_TARGET_ESP32S2)
+#include "modules/RangeTestModule.h"
+#if (defined(ARCH_ESP32) || defined(ARCH_NRF52) || defined(ARCH_RP2040)) && !defined(CONFIG_IDF_TARGET_ESP32S2)
 #include "modules/SerialModule.h"
 #endif
 #endif
@@ -46,6 +50,8 @@ void setupModules()
         waypointModule = new WaypointModule();
         textMessageModule = new TextMessageModule();
         traceRouteModule = new TraceRouteModule();
+        neighborInfoModule = new NeighborInfoModule();
+        detectionSensorModule = new DetectionSensorModule();
 
         // Note: if the rest of meshtastic doesn't need to explicitly use your module, you do not need to assign the instance
         // to a global variable.
@@ -54,11 +60,25 @@ void setupModules()
         new ReplyModule();
 #if HAS_BUTTON
         rotaryEncoderInterruptImpl1 = new RotaryEncoderInterruptImpl1();
-        rotaryEncoderInterruptImpl1->init();
+        if (!rotaryEncoderInterruptImpl1->init()) {
+            delete rotaryEncoderInterruptImpl1;
+            rotaryEncoderInterruptImpl1 = nullptr;
+        }
         upDownInterruptImpl1 = new UpDownInterruptImpl1();
-        upDownInterruptImpl1->init();
+        if (!upDownInterruptImpl1->init()) {
+            delete upDownInterruptImpl1;
+            upDownInterruptImpl1 = nullptr;
+        }
         cardKbI2cImpl = new CardKbI2cImpl();
         cardKbI2cImpl->init();
+#ifdef INPUTBROKER_MATRIX_TYPE
+        kbMatrixImpl = new KbMatrixImpl();
+        kbMatrixImpl->init();
+#endif // INPUTBROKER_MATRIX_TYPE
+#endif // HAS_BUTTON
+#if HAS_TRACKBALL
+        trackballInterruptImpl1 = new TrackballInterruptImpl1();
+        trackballInterruptImpl1->init();
 #endif
 #if HAS_SCREEN
         cannedMessageModule = new CannedMessageModule();
@@ -72,23 +92,25 @@ void setupModules()
             new AirQualityTelemetryModule();
         }
 #endif
-#if (defined(ARCH_ESP32) || defined(ARCH_NRF52)) && !defined(TTGO_T_ECHO) && !defined(CONFIG_IDF_TARGET_ESP32S2) &&              \
+#if (defined(ARCH_ESP32) || defined(ARCH_NRF52) || defined(ARCH_RP2040)) && !defined(CONFIG_IDF_TARGET_ESP32S2) &&               \
     !defined(CONFIG_IDF_TARGET_ESP32C3)
         new SerialModule();
 #endif
 #ifdef ARCH_ESP32
         // Only run on an esp32 based device.
         audioModule = new AudioModule();
-        externalNotificationModule = new ExternalNotificationModule();
 
         storeForwardModule = new StoreForwardModule();
-
-        new RangeTestModule();
-#elif defined(ARCH_NRF52)
+#endif
+#if defined(ARCH_ESP32) || defined(ARCH_NRF52) || defined(ARCH_RP2040)
         externalNotificationModule = new ExternalNotificationModule();
+        new RangeTestModule();
 #endif
     } else {
         adminModule = new AdminModule();
+#if HAS_TELEMETRY
+        new DeviceTelemetryModule();
+#endif
         traceRouteModule = new TraceRouteModule();
     }
     // NOTE! This module must be added LAST because it likes to check for replies from other modules and avoid sending extra

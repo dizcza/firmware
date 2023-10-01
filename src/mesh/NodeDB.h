@@ -7,6 +7,7 @@
 #include "MeshTypes.h"
 #include "NodeStatus.h"
 #include "mesh-pb-constants.h"
+#include "mesh/generated/meshtastic/mesh.pb.h" // For CriticalErrorCode
 
 /*
 DeviceState versions used to be defined in the .proto file but really only this function cares.  So changed to a
@@ -18,7 +19,7 @@ DeviceState versions used to be defined in the .proto file but really only this 
 #define SEGMENT_DEVICESTATE 4
 #define SEGMENT_CHANNELS 8
 
-#define DEVICESTATE_CUR_VER 20
+#define DEVICESTATE_CUR_VER 22
 #define DEVICESTATE_MIN_VER DEVICESTATE_CUR_VER
 
 extern meshtastic_DeviceState devicestate;
@@ -28,9 +29,10 @@ extern meshtastic_LocalConfig config;
 extern meshtastic_LocalModuleConfig moduleConfig;
 extern meshtastic_OEMStore oemStore;
 extern meshtastic_User &owner;
+extern meshtastic_Position localPosition;
 
 /// Given a node, return how many seconds in the past (vs now) that we last heard from it
-uint32_t sinceLastSeen(const meshtastic_NodeInfo *n);
+uint32_t sinceLastSeen(const meshtastic_NodeInfoLite *n);
 
 /// Given a packet, return how many seconds in the past (vs now) it was received
 uint32_t sinceReceived(const meshtastic_MeshPacket *p);
@@ -43,17 +45,15 @@ class NodeDB
     // Eventually use a smarter datastructure
     // HashMap<NodeNum, NodeInfo> nodes;
     // Note: these two references just point into our static array we serialize to/from disk
-    meshtastic_NodeInfo *nodes;
-    pb_size_t *numNodes;
-
-    uint32_t readPointer = 0;
+    meshtastic_NodeInfoLite *meshNodes;
+    pb_size_t *numMeshNodes;
 
   public:
     bool updateGUI = false; // we think the gui should definitely be redrawn, screen will clear this once handled
-    meshtastic_NodeInfo *updateGUIforNode = NULL; // if currently showing this node, we think you should update the GUI
+    meshtastic_NodeInfoLite *updateGUIforNode = NULL; // if currently showing this node, we think you should update the GUI
     Observable<const meshtastic::NodeStatus *> newStatus;
 
-    /// don't do mesh based algoritm for node id assignment (initially)
+    /// don't do mesh based algorithm for node id assignment (initially)
     /// instead just store in flash - possibly even in the initial alpha release do this hack
     NodeDB();
 
@@ -91,8 +91,6 @@ class NodeDB
     /// @return our node number
     NodeNum getNodeNum() { return myNodeInfo.my_node_num; }
 
-    size_t getNumNodes() { return *numNodes; }
-
     /// if returns false, that means our node should send a DenyNodeNum response.  If true, we think the number is okay for use
     // bool handleWantNodeNum(NodeNum n);
 
@@ -104,29 +102,14 @@ class NodeDB
     their denial?)
     */
 
-    /// Called from bluetooth when the user wants to start reading the node DB from scratch.
-    void resetReadPointer() { readPointer = 0; }
-
-    /// Allow the bluetooth layer to read our next nodeinfo record, or NULL if done reading
-    const meshtastic_NodeInfo *readNextInfo();
-
     /// pick a provisional nodenum we hope no one is using
     void pickNewNodeNum();
 
     // get channel channel index we heard a nodeNum on, defaults to 0 if not found
-    uint8_t getNodeChannel(NodeNum n);
-
-    /// Find a node in our DB, return null for missing
-    meshtastic_NodeInfo *getNode(NodeNum n);
-
-    meshtastic_NodeInfo *getNodeByIndex(size_t x)
-    {
-        assert(x < *numNodes);
-        return &nodes[x];
-    }
+    uint8_t getMeshNodeChannel(NodeNum n);
 
     /// Return the number of nodes we've heard from recently (within the last 2 hrs?)
-    size_t getNumOnlineNodes();
+    size_t getNumOnlineMeshNodes();
 
     void initConfigIntervals(), initModuleConfigIntervals(), resetNodes();
 
@@ -137,20 +120,34 @@ class NodeDB
 
     void installRoleDefaults(meshtastic_Config_DeviceConfig_Role role);
 
+    const meshtastic_NodeInfoLite *readNextMeshNode(uint32_t &readIndex);
+
+    meshtastic_NodeInfoLite *getMeshNodeByIndex(size_t x)
+    {
+        assert(x < *numMeshNodes);
+        return &meshNodes[x];
+    }
+
+    meshtastic_NodeInfoLite *getMeshNode(NodeNum n);
+    size_t getNumMeshNodes() { return *numMeshNodes; }
+
   private:
-    /// Find a node in our DB, create an empty NodeInfo if missing
-    meshtastic_NodeInfo *getOrCreateNode(NodeNum n);
+    /// Find a node in our DB, create an empty NodeInfoLite if missing
+    meshtastic_NodeInfoLite *getOrCreateMeshNode(NodeNum n);
 
     /// Notify observers of changes to the DB
     void notifyObservers(bool forceUpdate = false)
     {
         // Notify observers of the current node state
-        const meshtastic::NodeStatus status = meshtastic::NodeStatus(getNumOnlineNodes(), getNumNodes(), forceUpdate);
+        const meshtastic::NodeStatus status = meshtastic::NodeStatus(getNumOnlineMeshNodes(), getNumMeshNodes(), forceUpdate);
         newStatus.notifyObservers(&status);
     }
 
     /// read our db from flash
     void loadFromDisk();
+
+    /// purge db entries without user info
+    void cleanupMeshDB();
 
     /// Reinit device state from scratch (not loading from disk)
     void installDefaultDeviceState(), installDefaultChannels(), installDefaultConfig(), installDefaultModuleConfig();
@@ -165,7 +162,6 @@ extern NodeDB nodeDB;
 
         # prefs.position_broadcast_secs = FIXME possibly broadcast only once an hr
         prefs.wait_bluetooth_secs = 1  # Don't stay in bluetooth mode
-        prefs.mesh_sds_timeout_secs = never
         # try to stay in light sleep one full day, then briefly wake and sleep again
 
         prefs.ls_secs = oneday
@@ -193,7 +189,6 @@ extern NodeDB nodeDB;
 #define default_gps_update_interval IF_ROUTER(ONE_DAY, 2 * 60)
 #define default_broadcast_interval_secs IF_ROUTER(ONE_DAY / 2, 15 * 60)
 #define default_wait_bluetooth_secs IF_ROUTER(1, 60)
-#define default_mesh_sds_timeout_secs IF_ROUTER(NODE_DELAY_FOREVER, 2 * 60 * 60)
 #define default_sds_secs IF_ROUTER(ONE_DAY, UINT32_MAX) // Default to forever super deep sleep
 #define default_ls_secs IF_ROUTER(ONE_DAY, 5 * 60)
 #define default_min_wake_secs 10
@@ -217,10 +212,32 @@ inline uint32_t getConfiguredOrDefaultMs(uint32_t configuredInterval, uint32_t d
     return defaultInterval * 1000;
 }
 
+inline uint32_t getConfiguredOrDefault(uint32_t configured, uint32_t defaultValue)
+{
+    if (configured > 0)
+        return configured;
+
+    return defaultValue;
+}
+
+/// Sometimes we will have Position objects that only have a time, so check for
+/// valid lat/lon
+static inline bool hasValidPosition(const meshtastic_NodeInfoLite *n)
+{
+    return n->has_position && (n->position.latitude_i != 0 || n->position.longitude_i != 0);
+}
+
 /** The current change # for radio settings.  Starts at 0 on boot and any time the radio settings
  * might have changed is incremented.  Allows others to detect they might now be on a new channel.
  */
 extern uint32_t radioGeneration;
+
+extern meshtastic_CriticalErrorCode error_code;
+
+/*
+ * A numeric error address (nonzero if available)
+ */
+extern uint32_t error_address;
 
 #define Module_Config_size                                                                                                       \
     (ModuleConfig_CannedMessageConfig_size + ModuleConfig_ExternalNotificationConfig_size + ModuleConfig_MQTTConfig_size +       \

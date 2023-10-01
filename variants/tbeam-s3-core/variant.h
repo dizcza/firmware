@@ -7,9 +7,9 @@
 #define I2C_SCL 18 // For QMC6310 sensors and screens
 
 #define BUTTON_PIN 0 // The middle button GPIO on the T-Beam S3
-//#define BUTTON_PIN_ALT 13 // Alternate GPIO for an external button if needed. Does anyone use this? It is not documented
-// anywhere.
-// #define EXT_NOTIFY_OUT 13 // Default pin to use for Ext Notify Module.
+// #define BUTTON_PIN_ALT 13 // Alternate GPIO for an external button if needed. Does anyone use this? It is not documented
+//  anywhere.
+//  #define EXT_NOTIFY_OUT 13 // Default pin to use for Ext Notify Module.
 
 #define LED_INVERTED 1
 
@@ -29,7 +29,9 @@
 #define SX126X_DIO1 LORA_DIO1
 #define SX126X_BUSY LORA_DIO2
 #define SX126X_RESET LORA_RESET
-#define SX126X_E22 // Not really an E22 but TTGO seems to be trying to clone that
+// Not really an E22 but TTGO seems to be trying to clone that
+#define SX126X_DIO2_AS_RF_SWITCH
+#define SX126X_DIO3_TCXO_VOLTAGE 1.8
 // Internally the TTGO module hooks the SX1262-DIO2 in to control the TX/RX switch (which is the default for the sx1262interface
 // code)
 #endif
@@ -38,6 +40,8 @@
 // and waking from light sleep
 // #define PMU_IRQ 40
 #define HAS_AXP2101
+
+#define HAS_RTC 1
 
 // Specify the PMU as Wire1. In the t-beam-s3 core, PCF8563 and PMU share the bus
 #define PMU_USE_WIRE1
@@ -58,8 +62,6 @@
 
 // PCF8563 RTC Module
 // #define PCF8563_RTC 0x51         //Putting definitions in variant. h does not compile correctly
-
-#define HAS_RTC 1
 
 // has 32768 Hz crystal
 #define HAS_32768HZ

@@ -39,9 +39,16 @@
 #ifndef HAS_CPU_SHUTDOWN
 #define HAS_CPU_SHUTDOWN 1
 #endif
+#ifndef DEFAULT_VREF
+#define DEFAULT_VREF 1100
+#endif
 
 #if defined(HAS_AXP192) || defined(HAS_AXP2101)
 #define HAS_PMU
+#endif
+
+#ifdef PIN_BUTTON_TOUCH
+#define BUTTON_PIN_TOUCH PIN_BUTTON_TOUCH
 #endif
 //
 // set HW_VENDOR
@@ -78,6 +85,10 @@
 #define HW_VENDOR meshtastic_HardwareModel_TLORA_V2_1_1P6
 #elif defined(TLORA_V2_1_18)
 #define HW_VENDOR meshtastic_HardwareModel_TLORA_V2_1_1P8
+#elif defined(T_DECK)
+#define HW_VENDOR meshtastic_HardwareModel_T_DECK
+#elif defined(T_WATCH_S3)
+#define HW_VENDOR meshtastic_HardwareModel_T_WATCH_S3
 #elif defined(GENIEBLOCKS)
 #define HW_VENDOR meshtastic_HardwareModel_GENIEBLOCKS
 #elif defined(PRIVATE_HW)
@@ -94,6 +105,10 @@
 #define HW_VENDOR meshtastic_HardwareModel_HELTEC_V3
 #elif defined(HELTEC_WSL_V3)
 #define HW_VENDOR meshtastic_HardwareModel_HELTEC_WSL_V3
+#elif defined(HELTEC_WIRELESS_TRACKER)
+#define HW_VENDOR meshtastic_HardwareModel_HELTEC_WIRELESS_TRACKER
+#elif defined(HELTEC_WIRELESS_PAPER)
+#define HW_VENDOR meshtastic_HardwareModel_HELTEC_WIRELESS_PAPER
 #elif defined(TLORA_T3S3_V1)
 #define HW_VENDOR meshtastic_HardwareModel_TLORA_T3_S3
 #elif defined(BETAFPV_2400_TX)
@@ -102,6 +117,10 @@
 #define HW_VENDOR meshtastic_HardwareModel_NANO_G1_EXPLORER
 #elif defined(BETAFPV_900_TX_NANO)
 #define HW_VENDOR meshtastic_HardwareModel_BETAFPV_900_NANO_TX
+#elif defined(PICOMPUTER_S3)
+#define HW_VENDOR meshtastic_HardwareModel_PICOMPUTER_S3
+#elif defined(HELTEC_HT62)
+#define HW_VENDOR meshtastic_HardwareModel_HELTEC_HT62
 #elif defined(UT2UH_R6822DH)
 #define HW_VENDOR meshtastic_HardwareModel_UT2UH_R6822DH
 #elif defined(UT2UH_K46V1)

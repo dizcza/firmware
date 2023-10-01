@@ -12,9 +12,11 @@ void powerCommandsCheck()
         ESP.restart();
 #elif defined(ARCH_NRF52)
         NVIC_SystemReset();
+#elif defined(ARCH_RP2040)
+        rp2040.reboot();
 #else
         rebootAtMsec = -1;
-        LOG_WARN("FIXME implement reboot for this platform. Skipping for now.\n");
+        LOG_WARN("FIXME implement reboot for this platform. Note that some settings require a restart to be applied.\n");
 #endif
     }
 
@@ -26,8 +28,8 @@ void powerCommandsCheck()
 
     if (shutdownAtMsec && millis() > shutdownAtMsec) {
         LOG_INFO("Shutting down from admin command\n");
-        playShutdownMelody();
 #if defined(ARCH_NRF52) || defined(ARCH_ESP32)
+        playShutdownMelody();
         power->shutdown();
 #else
         LOG_WARN("FIXME implement shutdown for this platform");

@@ -282,7 +282,7 @@ JSONValue *JSONValue::Parse(const char **data)
         return NULL;
     }
 
-    // Ran out of possibilites, it's bad!
+    // Ran out of possibilities, it's bad!
     else {
         return NULL;
     }
@@ -358,6 +358,19 @@ JSONValue::JSONValue(double m_number_value)
  * @param int m_integer_value The number to use as the value
  */
 JSONValue::JSONValue(int m_integer_value)
+{
+    type = JSONType_Number;
+    number_value = (double)m_integer_value;
+}
+
+/**
+ * Basic constructor for creating a JSON Value of type Number
+ *
+ * @access public
+ *
+ * @param uint m_integer_value The number to use as the value
+ */
+JSONValue::JSONValue(uint m_integer_value)
 {
     type = JSONType_Number;
     number_value = (double)m_integer_value;

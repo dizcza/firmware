@@ -3,7 +3,7 @@
 #include "SinglePortModule.h"
 #include "concurrency/OSThread.h"
 #include "configuration.h"
-#ifndef ARCH_PORTDUINO
+#if !defined(ARCH_PORTDUINO) && !defined(ARCH_STM32WL)
 #include <NonBlockingRtttl.h>
 #else
 // Noop class for portduino.
@@ -51,6 +51,8 @@ class ExternalNotificationModule : public SinglePortModule, private concurrency:
     virtual ProcessMessage handleReceived(const meshtastic_MeshPacket &mp) override;
 
     virtual int32_t runOnce() override;
+
+    virtual bool wantPacket(const meshtastic_MeshPacket *p) override;
 
     bool isNagging = false;
 

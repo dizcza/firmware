@@ -16,9 +16,7 @@
 #include "unistd.h"
 #endif
 
-#if HAS_WIFI || HAS_ETHERNET
 #include "mqtt/MQTT.h"
-#endif
 
 #define DEFAULT_REBOOT_SECONDS 7
 
@@ -39,9 +37,9 @@ static void writeSecret(char *buf, size_t bufsz, const char *currentVal)
 }
 
 /**
- * @brief Handle recieved protobuf message
+ * @brief Handle received protobuf message
  *
- * @param mp Recieved MeshPacket
+ * @param mp Received MeshPacket
  * @param r Decoded AdminMessage
  * @return bool
  */
@@ -50,6 +48,7 @@ bool AdminModule::handleReceivedProtobuf(const meshtastic_MeshPacket &mp, meshta
     // if handled == false, then let others look at this message also if they want
     bool handled = false;
     assert(r);
+    bool fromOthers = mp.from != 0 && mp.from != nodeDB.getNodeNum();
 
     switch (r->which_payload_variant) {
 
@@ -175,6 +174,14 @@ bool AdminModule::handleReceivedProtobuf(const meshtastic_MeshPacket &mp, meshta
         handleGetDeviceConnectionStatus(mp);
         break;
     }
+    case meshtastic_AdminMessage_get_module_config_response_tag: {
+        LOG_INFO("Client is receiving a get_module_config response.\n");
+        if (fromOthers && r->get_module_config_response.which_payload_variant ==
+                              meshtastic_AdminMessage_ModuleConfigType_REMOTEHARDWARE_CONFIG) {
+            handleGetModuleConfigResponse(mp, r);
+        }
+        break;
+    }
 #ifdef ARCH_PORTDUINO
     case meshtastic_AdminMessage_exit_simulator_tag:
         LOG_INFO("Exiting simulator\n");
@@ -203,6 +210,29 @@ bool AdminModule::handleReceivedProtobuf(const meshtastic_MeshPacket &mp, meshta
     }
 
     return handled;
+}
+
+void AdminModule::handleGetModuleConfigResponse(const meshtastic_MeshPacket &mp, meshtastic_AdminMessage *r)
+{
+    // Skip if it's disabled or no pins are exposed
+    if (!r->get_module_config_response.payload_variant.remote_hardware.enabled ||
+        !r->get_module_config_response.payload_variant.remote_hardware.available_pins) {
+        LOG_DEBUG("Remote hardware module disabled or no vailable_pins. Skipping...\n");
+        return;
+    }
+    for (uint8_t i = 0; i < devicestate.node_remote_hardware_pins_count; i++) {
+        if (devicestate.node_remote_hardware_pins[i].node_num == 0 || !devicestate.node_remote_hardware_pins[i].has_pin) {
+            continue;
+        }
+        for (uint8_t j = 0; j < sizeof(r->get_module_config_response.payload_variant.remote_hardware.available_pins); j++) {
+            auto availablePin = r->get_module_config_response.payload_variant.remote_hardware.available_pins[j];
+            if (i < devicestate.node_remote_hardware_pins_count) {
+                devicestate.node_remote_hardware_pins[i].node_num = mp.from;
+                devicestate.node_remote_hardware_pins[i].pin = availablePin;
+            }
+            i++;
+        }
+    }
 }
 
 /**
@@ -337,6 +367,16 @@ void AdminModule::handleSetModuleConfig(const meshtastic_ModuleConfig &c)
         LOG_INFO("Setting module config: Remote Hardware\n");
         moduleConfig.has_remote_hardware = true;
         moduleConfig.remote_hardware = c.payload_variant.remote_hardware;
+        break;
+    case meshtastic_ModuleConfig_neighbor_info_tag:
+        LOG_INFO("Setting module config: Neighbor Info\n");
+        moduleConfig.has_neighbor_info = true;
+        moduleConfig.neighbor_info = c.payload_variant.neighbor_info;
+        break;
+    case meshtastic_ModuleConfig_detection_sensor_tag:
+        LOG_INFO("Setting module config: Detection Sensor\n");
+        moduleConfig.has_detection_sensor = true;
+        moduleConfig.detection_sensor = c.payload_variant.detection_sensor;
         break;
     }
 
@@ -473,6 +513,16 @@ void AdminModule::handleGetModuleConfig(const meshtastic_MeshPacket &req, const 
             res.get_module_config_response.which_payload_variant = meshtastic_ModuleConfig_remote_hardware_tag;
             res.get_module_config_response.payload_variant.remote_hardware = moduleConfig.remote_hardware;
             break;
+        case meshtastic_AdminMessage_ModuleConfigType_NEIGHBORINFO_CONFIG:
+            LOG_INFO("Getting module config: Neighbor Info\n");
+            res.get_module_config_response.which_payload_variant = meshtastic_ModuleConfig_neighbor_info_tag;
+            res.get_module_config_response.payload_variant.neighbor_info = moduleConfig.neighbor_info;
+            break;
+        case meshtastic_AdminMessage_ModuleConfigType_DETECTIONSENSOR_CONFIG:
+            LOG_INFO("Getting module config: Detection Sensor\n");
+            res.get_module_config_response.which_payload_variant = meshtastic_ModuleConfig_detection_sensor_tag;
+            res.get_module_config_response.payload_variant.detection_sensor = moduleConfig.detection_sensor;
+            break;
         }
 
         // NOTE: The phone app needs to know the ls_secsvalue so it can properly expect sleep behavior.
@@ -487,6 +537,28 @@ void AdminModule::handleGetModuleConfig(const meshtastic_MeshPacket &req, const 
     }
 }
 
+void AdminModule::handleGetNodeRemoteHardwarePins(const meshtastic_MeshPacket &req)
+{
+    meshtastic_AdminMessage r = meshtastic_AdminMessage_init_default;
+    r.which_payload_variant = meshtastic_AdminMessage_get_node_remote_hardware_pins_response_tag;
+    for (uint8_t i = 0; i < devicestate.node_remote_hardware_pins_count; i++) {
+        if (devicestate.node_remote_hardware_pins[i].node_num == 0 || !devicestate.node_remote_hardware_pins[i].has_pin) {
+            continue;
+        }
+        r.get_node_remote_hardware_pins_response.node_remote_hardware_pins[i] = devicestate.node_remote_hardware_pins[i];
+    }
+    for (uint8_t i = 0; i < moduleConfig.remote_hardware.available_pins_count; i++) {
+        if (!moduleConfig.remote_hardware.available_pins[i].gpio_pin) {
+            continue;
+        }
+        meshtastic_NodeRemoteHardwarePin nodePin = meshtastic_NodeRemoteHardwarePin_init_default;
+        nodePin.node_num = nodeDB.getNodeNum();
+        nodePin.pin = moduleConfig.remote_hardware.available_pins[i];
+        r.get_node_remote_hardware_pins_response.node_remote_hardware_pins[i + 12] = nodePin;
+    }
+    myReply = allocDataProtobuf(r);
+}
+
 void AdminModule::handleGetDeviceMetadata(const meshtastic_MeshPacket &req)
 {
     meshtastic_AdminMessage r = meshtastic_AdminMessage_init_default;
@@ -499,9 +571,8 @@ void AdminModule::handleGetDeviceConnectionStatus(const meshtastic_MeshPacket &r
 {
     meshtastic_AdminMessage r = meshtastic_AdminMessage_init_default;
 
-    meshtastic_DeviceConnectionStatus conn;
+    meshtastic_DeviceConnectionStatus conn = meshtastic_DeviceConnectionStatus_init_zero;
 
-    conn.wifi = {0};
 #if HAS_WIFI
     conn.has_wifi = true;
     conn.wifi.has_status = true;
@@ -514,27 +585,22 @@ void AdminModule::handleGetDeviceConnectionStatus(const meshtastic_MeshPacket &r
     if (conn.wifi.status.is_connected) {
         conn.wifi.rssi = WiFi.RSSI();
         conn.wifi.status.ip_address = WiFi.localIP();
-        conn.wifi.status.is_mqtt_connected = mqtt && mqtt->connected();
+        conn.wifi.status.is_mqtt_connected = mqtt && mqtt->isConnectedDirectly();
         conn.wifi.status.is_syslog_connected = false; // FIXME wire this up
     }
-#else
-    conn.has_wifi = false;
 #endif
 
-    conn.ethernet = {0};
 #if HAS_ETHERNET
     conn.has_ethernet = true;
     conn.ethernet.has_status = true;
     if (Ethernet.linkStatus() == LinkON) {
         conn.ethernet.status.is_connected = true;
         conn.ethernet.status.ip_address = Ethernet.localIP();
-        conn.ethernet.status.is_mqtt_connected = mqtt && mqtt->connected();
+        conn.ethernet.status.is_mqtt_connected = mqtt && mqtt->isConnectedDirectly();
         conn.ethernet.status.is_syslog_connected = false; // FIXME wire this up
     } else {
         conn.ethernet.status.is_connected = false;
     }
-#else
-    conn.has_ethernet = false;
 #endif
 
 #if HAS_BLUETOOTH

@@ -196,8 +196,9 @@ uint32_t RadioInterface::getRetransmissionMsec(const meshtastic_MeshPacket *p)
     // LOG_DEBUG("Waiting for flooding message with airtime %d and slotTime is %d\n", packetAirtime, slotTimeMsec);
     float channelUtil = airTime->channelUtilizationPercent();
     uint8_t CWsize = map(channelUtil, 0, 100, CWmin, CWmax);
-    // Assuming we pick max. of CWsize and there will be a receiver with SNR at half the range
-    return 2 * packetAirtime + (pow(2, CWsize) + pow(2, int((CWmax + CWmin) / 2))) * slotTimeMsec + PROCESSING_TIME_MSEC;
+    // Assuming we pick max. of CWsize and there will be a client with SNR at half the range
+    return 2 * packetAirtime + (pow(2, CWsize) + 2 * CWmax + pow(2, int((CWmax + CWmin) / 2))) * slotTimeMsec +
+           PROCESSING_TIME_MSEC;
 }
 
 /** The delay to use when we want to send something */
@@ -232,7 +233,8 @@ uint32_t RadioInterface::getTxDelayMsecWeighted(float snr)
         delay = random(0, 2 * CWsize) * slotTimeMsec;
         LOG_DEBUG("rx_snr found in packet. As a router, setting tx delay:%d\n", delay);
     } else {
-        delay = random(0, pow(2, CWsize)) * slotTimeMsec;
+        // offset the maximum delay for routers: (2 * CWmax * slotTimeMsec)
+        delay = (2 * CWmax * slotTimeMsec) + random(0, pow(2, CWsize)) * slotTimeMsec;
         LOG_DEBUG("rx_snr found in packet. Setting tx delay:%d\n", delay);
     }
 
@@ -241,6 +243,7 @@ uint32_t RadioInterface::getTxDelayMsecWeighted(float snr)
 
 void printPacket(const char *prefix, const meshtastic_MeshPacket *p)
 {
+#ifdef DEBUG_PORT
     std::string out = DEBUG_PORT.mt_sprintf("%s (id=0x%08x fr=0x%02x to=0x%02x, WantAck=%d, HopLim=%d Ch=0x%x", prefix, p->id,
                                             p->from & 0xff, p->to & 0xff, p->want_ack, p->hop_limit, p->channel);
     if (p->which_payload_variant == meshtastic_MeshPacket_decoded_tag) {
@@ -283,6 +286,7 @@ void printPacket(const char *prefix, const meshtastic_MeshPacket *p)
 
     out += ")";
     LOG_DEBUG("%s\n", out.c_str());
+#endif
 }
 
 RadioInterface::RadioInterface()
@@ -304,7 +308,7 @@ bool RadioInterface::init()
     preflightSleepObserver.observe(&preflightSleep);
     notifyDeepSleepObserver.observe(&notifyDeepSleep);
 
-    // we now expect interfaces to operate in promiscous mode
+    // we now expect interfaces to operate in promiscuous mode
     // radioIf.setThisAddress(nodeDB.getNodeNum()); // Note: we must do this here, because the nodenum isn't inited at constructor
     // time.
 
@@ -530,8 +534,8 @@ size_t RadioInterface::beginSending(meshtastic_MeshPacket *p)
     h->id = p->id;
     h->channel = p->channel;
     if (p->hop_limit > HOP_MAX) {
-        LOG_WARN("hop limit %d is too high, setting to %d\n", p->hop_limit, HOP_MAX);
-        p->hop_limit = HOP_MAX;
+        LOG_WARN("hop limit %d is too high, setting to %d\n", p->hop_limit, HOP_RELIABLE);
+        p->hop_limit = HOP_RELIABLE;
     }
     h->flags = p->hop_limit | (p->want_ack ? PACKET_FLAGS_WANT_ACK_MASK : 0);
 

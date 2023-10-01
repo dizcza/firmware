@@ -1,4 +1,7 @@
 name: CI
+#concurrency:
+#  group: ${{ github.ref }}
+#  cancel-in-progress: ${{ github.ref != 'refs/heads/master' }}
 on:
   # # Triggers the workflow on push but only for the master branch
   push:
@@ -23,9 +26,9 @@ jobs:
       matrix:
         include:
           - board: rak11200
-          - board: tlora-v2-1-1.6
+          - board: tlora-v2-1-1_6
           - board: tbeam
-          - board: heltec-v2.1
+          - board: heltec-v2_1
           - board: meshtastic-diy-v1
           - board: rak4631
           - board: t-echo
@@ -36,6 +39,9 @@ jobs:
           - board: ut2uh-k46v1
           - board: ut2uh-k46v2
           - board: ut2uh-r6822dh
+          - board: t-watch-s3
+          - board: t-deck
+          #- board: rak11310
 
     runs-on: ubuntu-latest
     steps:
@@ -46,7 +52,7 @@ jobs:
 
       - name: Trunk Check
         if: ${{ github.event_name != 'workflow_dispatch' }}
-        uses: trunk-io/trunk-action@v1
+        uses: trunk-io/trunk-action@782e83f803ca6e369f035d64c6ba2768174ba61b
 
       - name: Check ${{ matrix.board }}
         run: bin/check-all.sh ${{ matrix.board }}
@@ -60,14 +66,15 @@ jobs:
           - board: tlora-v2
           - board: tlora-v1
           - board: tlora_v1_3
-          - board: tlora-v2-1-1.6
-          - board: tlora-v2-1-1.8
+          - board: tlora-v2-1-1_6
+          - board: tlora-v2-1-1_8
           - board: tbeam
           - board: heltec-v1
-          - board: heltec-v2.0
-          - board: heltec-v2.1
-          - board: tbeam0.7
+          - board: heltec-v2_0
+          - board: heltec-v2_1
+          - board: tbeam0_7
           - board: meshtastic-diy-v1
+          - board: hydra
           - board: meshtastic-dr-dev
           - board: nano-g1
           - board: station-g1
@@ -85,8 +92,13 @@ jobs:
         include:
           - board: heltec-v3
           - board: heltec-wsl-v3
+          - board: heltec-wireless-tracker
+          - board: heltec-wireless-paper
           - board: tbeam-s3-core
           - board: tlora-t3s3-v1
+          - board: t-watch-s3
+          - board: t-deck
+          - board: picomputer-s3
     uses: ./.github/workflows/build_esp32_s3.yml
     with:
       board: ${{ matrix.board }}
@@ -99,23 +111,26 @@ jobs:
         include:
           - board: rak4631
           - board: rak4631_eink
+          - board: monteops_hw1
           - board: t-echo
           - board: pca10059_diy_eink
           - board: feather_diy
+          - board: nano-g2-ultra
     uses: ./.github/workflows/build_nrf52.yml
     with:
       board: ${{ matrix.board }}
 
-  # build-rpi2040:
-  #   strategy:
-  #     fail-fast: false
-  #     max-parallel: 2
-  #     matrix:
-  #       include:
-  #         - board: pico
-  #   uses: ./.github/workflows/build_rpi2040.yml
-  #   with:
-  #     board: ${{ matrix.board }}
+  build-rpi2040:
+    strategy:
+      fail-fast: false
+      max-parallel: 2
+      matrix:
+        include:
+          - board: pico
+          - board: rak11310
+    uses: ./.github/workflows/build_rpi2040.yml
+    with:
+      board: ${{ matrix.board }}
 
   build-native:
     runs-on: ubuntu-latest
@@ -151,12 +166,14 @@ jobs:
             release/device-*.bat
 
       - name: Docker login
+        if: ${{ github.event_name != 'pull_request_target' && github.event_name != 'pull_request' }}
         uses: docker/login-action@v2
         with:
           username: meshtastic
           password: ${{ secrets.DOCKER_TOKEN }}
 
       - name: Docker setup
+        if: ${{ github.event_name != 'pull_request_target' && github.event_name != 'pull_request' }}
         uses: docker/setup-buildx-action@v2
 
       - name: Docker build and push tagged versions
@@ -169,7 +186,7 @@ jobs:
           tags: meshtastic/device-simulator:${{ steps.version.outputs.version }}
 
       - name: Docker build and push
-        if: github.ref == 'refs/heads/master'
+        if: ${{ github.ref == 'refs/heads/master' && github.event_name != 'pull_request_target' && github.event_name != 'pull_request' }}
         uses: docker/build-push-action@v3
         with:
           context: .
@@ -189,7 +206,8 @@ jobs:
 
   gather-artifacts:
     runs-on: ubuntu-latest
-    needs: [build-esp32, build-esp32-s3, build-nrf52, build-native] #, build-rpi2040]
+    needs:
+      [build-esp32, build-esp32-s3, build-nrf52, build-native, build-rpi2040]
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
@@ -245,8 +263,9 @@ jobs:
           retention-days: 30
 
       - name: Create request artifacts
+        continue-on-error: true # FIXME: Why are we getting 502, but things still work?
         if: ${{ github.event_name == 'pull_request_target' || github.event_name == 'pull_request' }}
-        uses: gavv/pull-request-artifacts@v1.0.0
+        uses: gavv/pull-request-artifacts@v1.1.0
         with:
           commit: ${{ (github.event.pull_request_target || github.event.pull_request).head.sha }}
           repo-token: ${{ secrets.GITHUB_TOKEN }}
@@ -304,7 +323,7 @@ jobs:
         with:
           draft: true
           prerelease: true
-          release_name: Meshtastic Firmware ${{ steps.version.outputs.version }}
+          release_name: Meshtastic Firmware ${{ steps.version.outputs.version }} Alpha
           tag_name: v${{ steps.version.outputs.version }}
           body: |
             Autogenerated by github action, developer should edit as required before publishing...

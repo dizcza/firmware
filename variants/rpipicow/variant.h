@@ -4,25 +4,30 @@
 
 #define ARDUINO_ARCH_AVR
 
+#undef CBC
 #define CBC 0
+#undef CTR
 #define CTR 1
+#undef ECB
 #define ECB 0
 
-#define NO_GPS 1
 #define USE_SH1106 1
-#undef GPS_SERIAL_NUM
 
-// #define I2C_SDA 6
-// #define I2C_SCL 7
+// default I2C pins:
+// SDA = 4
+// SCL = 5
 
+// Recommended pins for SerialModule:
+// txd = 8
+// rxd = 9
+
+#define EXT_NOTIFY_OUT 22
 #define BUTTON_PIN 17
-#define EXT_NOTIFY_OUT 4
 
 #define BATTERY_PIN 26
 // ratio of voltage divider = 3.0 (R17=200k, R18=100k)
 #define ADC_MULTIPLIER 3.1 // 3.0 + a bit for being optimistic
 
-#define USE_RF95
 #define USE_SX1262
 
 #undef RF95_SCK
@@ -46,7 +51,6 @@
 #define SX126X_DIO1 LORA_DIO1
 #define SX126X_BUSY LORA_DIO2
 #define SX126X_RESET LORA_RESET
-#define SX126X_E22
+#define SX126X_DIO2_AS_RF_SWITCH
+#define SX126X_DIO3_TCXO_VOLTAGE 1.8
 #endif
-
-#include <Adafruit_TinyUSB.h>

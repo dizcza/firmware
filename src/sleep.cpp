@@ -23,11 +23,6 @@ esp_sleep_source_t wakeCause; // the reason we booted this time
 #define INCLUDE_vTaskSuspend 0
 #endif
 
-#ifdef HAS_PMU
-#include "XPowersLibInterface.hpp"
-extern XPowersLibInterface *PMU;
-#endif
-
 /// Called to ask any observers if they want to veto sleep. Return 1 to veto or 0 to allow sleep to happen
 Observable<void *> preflightSleep;
 
@@ -95,29 +90,6 @@ void setLed(bool ledOn)
 #endif
 }
 
-void setGPSPower(bool on)
-{
-    LOG_INFO("Setting GPS power=%d\n", on);
-
-#ifdef HAS_PMU
-    if (pmu_found && PMU) {
-        uint8_t model = PMU->getChipModel();
-        if (model == XPOWERS_AXP2101) {
-#if (HW_VENDOR == meshtastic_HardwareModel_TBEAM)
-            // t-beam v1.2 GNSS power channel
-            on ? PMU->enablePowerOutput(XPOWERS_ALDO3) : PMU->disablePowerOutput(XPOWERS_ALDO3);
-#elif (HW_VENDOR == meshtastic_HardwareModel_LILYGO_TBEAM_S3_CORE)
-            // t-beam-s3-core GNSS  power channel
-            on ? PMU->enablePowerOutput(XPOWERS_ALDO4) : PMU->disablePowerOutput(XPOWERS_ALDO4);
-#endif
-        } else if (model == XPOWERS_AXP192) {
-            // t-beam v1.1 GNSS  power channel
-            on ? PMU->enablePowerOutput(XPOWERS_LDO3) : PMU->disablePowerOutput(XPOWERS_LDO3);
-        }
-    }
-#endif
-}
-
 // Perform power on init that we do on each wake from deep sleep
 void initDeepSleep()
 {
@@ -132,6 +104,7 @@ void initDeepSleep()
       support busted boards, assume button one was pressed wakeButtons = ((uint64_t)1) << buttons.gpios[0];
       */
 
+#ifdef DEBUG_PORT
     // If we booted because our timer ran out or the user pressed reset, send those as fake events
     const char *reason = "reset"; // our best guess
     RESET_REASON hwReason = rtc_get_reset_reason(0);
@@ -150,6 +123,7 @@ void initDeepSleep()
 
     LOG_INFO("Booted, wake cause %d (boot count %d), reset_reason=%s\n", wakeCause, bootCount, reason);
 #endif
+#endif
 }
 
 bool doPreflightSleep()
@@ -161,16 +135,18 @@ bool doPreflightSleep()
 }
 
 /// Tell devices we are going to sleep and wait for them to handle things
-static void waitEnterSleep()
+static void waitEnterSleep(bool skipPreflight = false)
 {
-    uint32_t now = millis();
-    while (!doPreflightSleep()) {
-        delay(100); // Kinda yucky - wait until radio says say we can shutdown (finished in process sends/receives)
+    if (!skipPreflight) {
+        uint32_t now = millis();
+        while (!doPreflightSleep()) {
+            delay(100); // Kinda yucky - wait until radio says say we can shutdown (finished in process sends/receives)
 
-        if (millis() - now > 30 * 1000) { // If we wait too long just report an error and go to sleep
-            RECORD_CRITICALERROR(meshtastic_CriticalErrorCode_SLEEP_ENTER_WAIT);
-            assert(0); // FIXME - for now we just restart, need to fix bug #167
-            break;
+            if (millis() - now > 30 * 1000) { // If we wait too long just report an error and go to sleep
+                RECORD_CRITICALERROR(meshtastic_CriticalErrorCode_SLEEP_ENTER_WAIT);
+                assert(0); // FIXME - for now we just restart, need to fix bug #167
+                break;
+            }
         }
     }
 
@@ -181,31 +157,7 @@ static void waitEnterSleep()
     notifySleep.notifyObservers(NULL);
 }
 
-void doGPSpowersave(bool on)
-{
-#ifdef HAS_PMU
-    if (on) {
-        LOG_INFO("Turning GPS back on\n");
-        gps->forceWake(1);
-        setGPSPower(1);
-    } else {
-        LOG_INFO("Turning off GPS chip\n");
-        notifyGPSSleep.notifyObservers(NULL);
-        setGPSPower(0);
-    }
-#endif
-#ifdef PIN_GPS_WAKE
-    if (on) {
-        LOG_INFO("Waking GPS");
-        gps->forceWake(1);
-    } else {
-        LOG_INFO("GPS entering sleep");
-        notifyGPSSleep.notifyObservers(NULL);
-    }
-#endif
-}
-
-void doDeepSleep(uint32_t msecToWake)
+void doDeepSleep(uint32_t msecToWake, bool skipPreflight = false)
 {
     if (INCLUDE_vTaskSuspend && (msecToWake == portMAX_DELAY)) {
         LOG_INFO("Entering deep sleep forever\n");
@@ -215,7 +167,7 @@ void doDeepSleep(uint32_t msecToWake)
 
     // not using wifi yet, but once we are this is needed to shutoff the radio hw
     // esp_wifi_stop();
-    waitEnterSleep();
+    waitEnterSleep(skipPreflight);
     notifyDeepSleep.notifyObservers(NULL);
 
     screen->doDeepSleep(); // datasheet says this will draw only 10ua
@@ -223,7 +175,7 @@ void doDeepSleep(uint32_t msecToWake)
     nodeDB.saveToDisk();
 
     // Kill GPS power completely (even if previously we just had it in sleep mode)
-    setGPSPower(false);
+    gps->setGPSPower(false, false);
 
     setLed(false);
 
@@ -244,18 +196,19 @@ void doDeepSleep(uint32_t msecToWake)
         //
         // No need to turn this off if the power draw in sleep mode really is just 0.2uA and turning it off would
         // leave floating input for the IRQ line
-        // If we want to leave the radio receving in would be 11.5mA current draw, but most of the time it is just waiting
+        // If we want to leave the radio receiving in would be 11.5mA current draw, but most of the time it is just waiting
         // in its sequencer (true?) so the average power draw should be much lower even if we were listinging for packets
         // all the time.
 
         uint8_t model = PMU->getChipModel();
         if (model == XPOWERS_AXP2101) {
-#if (HW_VENDOR == meshtastic_HardwareModel_TBEAM)
-            // t-beam v1.2 radio power channel
-            PMU->disablePowerOutput(XPOWERS_ALDO2); // lora radio power channel
-#elif (HW_VENDOR == meshtastic_HardwareModel_LILYGO_TBEAM_S3_CORE)
-            PMU->disablePowerOutput(XPOWERS_ALDO3); // lora radio power channel
-#endif
+            if (HW_VENDOR == meshtastic_HardwareModel_TBEAM) {
+                // t-beam v1.2 radio power channel
+                PMU->disablePowerOutput(XPOWERS_ALDO2); // lora radio power channel
+            } else if (HW_VENDOR == meshtastic_HardwareModel_LILYGO_TBEAM_S3_CORE ||
+                       HW_VENDOR == meshtastic_HardwareModel_T_WATCH_S3) {
+                PMU->disablePowerOutput(XPOWERS_ALDO3); // lora radio power channel
+            }
         } else if (model == XPOWERS_AXP192) {
             // t-beam v1.1 radio power channel
             PMU->disablePowerOutput(XPOWERS_LDO2); // lora radio power channel
@@ -276,7 +229,7 @@ esp_sleep_wakeup_cause_t doLightSleep(uint64_t sleepMsec) // FIXME, use a more r
 {
     // LOG_DEBUG("Enter light sleep\n");
 
-    waitEnterSleep();
+    waitEnterSleep(false);
 
     uint64_t sleepUsec = sleepMsec * 1000LL;
 
@@ -309,8 +262,13 @@ esp_sleep_wakeup_cause_t doLightSleep(uint64_t sleepMsec) // FIXME, use a more r
     // assert(esp_sleep_enable_uart_wakeup(0) == ESP_OK);
 #endif
 #ifdef BUTTON_PIN
+#if SOC_PM_SUPPORT_EXT_WAKEUP
     esp_sleep_enable_ext0_wakeup((gpio_num_t)(config.device.button_gpio ? config.device.button_gpio : BUTTON_PIN),
                                  LOW); // when user presses, this button goes low
+#else
+    esp_sleep_enable_gpio_wakeup();
+    gpio_wakeup_enable((gpio_num_t)BUTTON_PIN, GPIO_INTR_LOW_LEVEL);
+#endif
 #endif
 #if defined(LORA_DIO1) && (LORA_DIO1 != RADIOLIB_NC)
     gpio_wakeup_enable((gpio_num_t)LORA_DIO1, GPIO_INTR_HIGH_LEVEL); // SX126x/SX128x interrupt, active high
@@ -324,23 +282,27 @@ esp_sleep_wakeup_cause_t doLightSleep(uint64_t sleepMsec) // FIXME, use a more r
         gpio_wakeup_enable((gpio_num_t)PMU_IRQ, GPIO_INTR_LOW_LEVEL); // pmu irq
 #endif
     auto res = esp_sleep_enable_gpio_wakeup();
-    if (res != ESP_OK)
+    if (res != ESP_OK) {
         LOG_DEBUG("esp_sleep_enable_gpio_wakeup result %d\n", res);
+    }
     assert(res == ESP_OK);
     res = esp_sleep_enable_timer_wakeup(sleepUsec);
-    if (res != ESP_OK)
+    if (res != ESP_OK) {
         LOG_DEBUG("esp_sleep_enable_timer_wakeup result %d\n", res);
+    }
     assert(res == ESP_OK);
     res = esp_light_sleep_start();
-    if (res != ESP_OK)
+    if (res != ESP_OK) {
         LOG_DEBUG("esp_light_sleep_start result %d\n", res);
+    }
     assert(res == ESP_OK);
 
     esp_sleep_wakeup_cause_t cause = esp_sleep_get_wakeup_cause();
 #ifdef BUTTON_PIN
-    if (cause == ESP_SLEEP_WAKEUP_GPIO)
+    if (cause == ESP_SLEEP_WAKEUP_GPIO) {
         LOG_INFO("Exit light sleep gpio: btn=%d\n",
                  !digitalRead(config.device.button_gpio ? config.device.button_gpio : BUTTON_PIN));
+    }
 #endif
 
     return cause;

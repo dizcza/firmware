@@ -5,7 +5,8 @@
  * Schedule a callback to run.  The callback must _not_ block, though it is called from regular thread level (not ISR)
  *
  * NOTE! xTimerPend... seems to ignore the time passed in on ESP32 and on NRF52
- * The reason this didn't work is bcause xTimerPednFunctCall really isn't a timer function at all - it just means run the callback
+ * The reason this didn't work is because xTimerPednFunctCall really isn't a timer function at all - it just means run the
+callback
  * from the timer thread the next time you have spare cycles.
  *
  * @return true if successful, false if the timer fifo is too full.
@@ -28,6 +29,16 @@ static void IRAM_ATTR onTimer()
     (*tCallback)(tParam1, tParam2);
 }
 
+/**
+ * Schedules a hardware callback function to be executed after a specified delay.
+ *
+ * @param callback The function to be executed.
+ * @param param1 The first parameter to be passed to the function.
+ * @param param2 The second parameter to be passed to the function.
+ * @param delayMsec The delay time in milliseconds before the function is executed.
+ *
+ * @return True if the function was successfully scheduled, false otherwise.
+ */
 bool scheduleHWCallback(PendableFunction callback, void *param1, uint32_t param2, uint32_t delayMsec)
 {
     if (!timer) {

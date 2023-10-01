@@ -1,5 +1,13 @@
+/**
+ * @file PowerFSM.cpp
+ * @brief Implements the finite state machine for power management.
+ *
+ * This file contains the implementation of the finite state machine (FSM) for power management.
+ * The FSM controls the power states of the device, including SDS (shallow deep sleep), LS (light sleep),
+ * NB (normal mode), and POWER (powered mode). The FSM also handles transitions between states and
+ * actions to be taken upon entering or exiting each state.
+ */
 #include "PowerFSM.h"
-#include "GPS.h"
 #include "MeshService.h"
 #include "NodeDB.h"
 #include "configuration.h"
@@ -35,16 +43,16 @@ static bool isPowered()
 
 static void sdsEnter()
 {
-    LOG_INFO("Enter state: SDS\n");
+    LOG_DEBUG("Enter state: SDS\n");
     // FIXME - make sure GPS and LORA radio are off first - because we want close to zero current draw
-    doDeepSleep(getConfiguredOrDefaultMs(config.power.sds_secs));
+    doDeepSleep(getConfiguredOrDefaultMs(config.power.sds_secs), false);
 }
 
 extern Power *power;
 
 static void shutdownEnter()
 {
-    LOG_INFO("Enter state: SHUTDOWN\n");
+    LOG_DEBUG("Enter state: SHUTDOWN\n");
     power->shutdown();
 }
 
@@ -128,16 +136,16 @@ static void lsIdle()
 static void lsExit()
 {
     LOG_INFO("Exit state: LS\n");
-    // setGPSPower(true); // restore GPS power
-    if (gps)
-        gps->forceWake(true);
 }
 
 static void nbEnter()
 {
-    LOG_INFO("Enter state: NB\n");
+    LOG_DEBUG("Enter state: NB\n");
     screen->setOn(false);
+#ifdef ARCH_ESP32
+    // Only ESP32 should turn off bluetooth
     setBluetoothEnable(false);
+#endif
 
     // FIXME - check if we already have packets for phone and immediately trigger EVENT_PACKETS_FOR_PHONE
 }
@@ -150,7 +158,7 @@ static void darkEnter()
 
 static void serialEnter()
 {
-    LOG_INFO("Enter state: SERIAL\n");
+    LOG_DEBUG("Enter state: SERIAL\n");
     setBluetoothEnable(false);
     screen->setOn(true);
     screen->print("Serial connected\n");
@@ -158,12 +166,14 @@ static void serialEnter()
 
 static void serialExit()
 {
+    // Turn bluetooth back on when we leave serial stream API
+    setBluetoothEnable(true);
     screen->print("Serial disconnected\n");
 }
 
 static void powerEnter()
 {
-    LOG_INFO("Enter state: POWER\n");
+    // LOG_DEBUG("Enter state: POWER\n");
     if (!isPowered()) {
         // If we got here, we are in the wrong state - we should be in powered, let that state ahndle things
         LOG_INFO("Loss of power in Powered\n");
@@ -198,7 +208,7 @@ static void powerExit()
 
 static void onEnter()
 {
-    LOG_INFO("Enter state: ON\n");
+    LOG_DEBUG("Enter state: ON\n");
     screen->setOn(true);
     setBluetoothEnable(true);
 }
@@ -218,7 +228,7 @@ static void screenPress()
 
 static void bootEnter()
 {
-    LOG_INFO("Enter state: BOOT\n");
+    LOG_DEBUG("Enter state: BOOT\n");
 }
 
 State stateSHUTDOWN(shutdownEnter, NULL, NULL, "SHUTDOWN");
@@ -242,7 +252,11 @@ void PowerFSM_setup()
 
     // wake timer expired or a packet arrived
     // if we are a router node, we go to NB (no need for bluetooth) otherwise we go to DARK (so we can send message to phone)
+#ifdef ARCH_ESP32
     powerFSM.add_transition(&stateLS, isRouter ? &stateNB : &stateDARK, EVENT_WAKE_TIMER, NULL, "Wake timer");
+#else // Don't go into a no-bluetooth state on low power platforms
+    powerFSM.add_transition(&stateLS, &stateDARK, EVENT_WAKE_TIMER, NULL, "Wake timer");
+#endif
 
     // We need this transition, because we might not transition if we were waiting to enter light-sleep, because when we wake from
     // light sleep we _always_ transition to NB or dark and
@@ -279,7 +293,8 @@ void PowerFSM_setup()
     powerFSM.add_transition(&stateLS, &stateON, EVENT_INPUT, NULL, "Input Device");
     powerFSM.add_transition(&stateNB, &stateON, EVENT_INPUT, NULL, "Input Device");
     powerFSM.add_transition(&stateDARK, &stateON, EVENT_INPUT, NULL, "Input Device");
-    powerFSM.add_transition(&stateON, &stateON, EVENT_INPUT, NULL, "Input Device"); // restarts the sleep timer
+    powerFSM.add_transition(&stateON, &stateON, EVENT_INPUT, NULL, "Input Device");       // restarts the sleep timer
+    powerFSM.add_transition(&statePOWER, &statePOWER, EVENT_INPUT, NULL, "Input Device"); // restarts the sleep timer
 
     powerFSM.add_transition(&stateDARK, &stateON, EVENT_BLUETOOTH_PAIR, NULL, "Bluetooth pairing");
     powerFSM.add_transition(&stateON, &stateON, EVENT_BLUETOOTH_PAIR, NULL, "Bluetooth pairing");
@@ -295,10 +310,10 @@ void PowerFSM_setup()
         powerFSM.add_transition(&stateON, &stateON, EVENT_NODEDB_UPDATED, NULL, "NodeDB update");
 
         // Show the received text message
-        powerFSM.add_transition(&stateLS, &stateON, EVENT_RECEIVED_TEXT_MSG, NULL, "Received text");
-        powerFSM.add_transition(&stateNB, &stateON, EVENT_RECEIVED_TEXT_MSG, NULL, "Received text");
-        powerFSM.add_transition(&stateDARK, &stateON, EVENT_RECEIVED_TEXT_MSG, NULL, "Received text");
-        powerFSM.add_transition(&stateON, &stateON, EVENT_RECEIVED_TEXT_MSG, NULL, "Received text"); // restarts the sleep timer
+        powerFSM.add_transition(&stateLS, &stateON, EVENT_RECEIVED_MSG, NULL, "Received text");
+        powerFSM.add_transition(&stateNB, &stateON, EVENT_RECEIVED_MSG, NULL, "Received text");
+        powerFSM.add_transition(&stateDARK, &stateON, EVENT_RECEIVED_MSG, NULL, "Received text");
+        powerFSM.add_transition(&stateON, &stateON, EVENT_RECEIVED_MSG, NULL, "Received text"); // restarts the sleep timer
     }
 
     // If we are not in statePOWER but get a serial connection, suppress sleep (and keep the screen on) while connected
@@ -346,11 +361,7 @@ void PowerFSM_setup()
                                       getConfiguredOrDefaultMs(config.power.wait_bluetooth_secs, default_wait_bluetooth_secs),
                                       NULL, "Bluetooth timeout");
     }
-
-    if (config.power.sds_secs != UINT32_MAX)
-        powerFSM.add_timed_transition(lowPowerState, &stateSDS, getConfiguredOrDefaultMs(config.power.sds_secs), NULL,
-                                      "mesh timeout");
 #endif
 
-    powerFSM.run_machine(); // run one interation of the state machine, so we run our on enter tasks for the initial DARK state
+    powerFSM.run_machine(); // run one iteration of the state machine, so we run our on enter tasks for the initial DARK state
 }

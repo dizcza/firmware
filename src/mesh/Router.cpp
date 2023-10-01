@@ -12,9 +12,7 @@ extern "C" {
 #include "mesh/compression/unishox2.h"
 }
 
-#if HAS_WIFI || HAS_ETHERNET
 #include "mqtt/MQTT.h"
-#endif
 
 /**
  * Router todo
@@ -155,7 +153,12 @@ void Router::setReceivedMessage()
 
 meshtastic_QueueStatus Router::getQueueStatus()
 {
-    return iface->getQueueStatus();
+    if (!iface) {
+        meshtastic_QueueStatus qs;
+        qs.res = qs.mesh_packet_id = qs.free = qs.maxlen = 0;
+        return qs;
+    } else
+        return iface->getQueueStatus();
 }
 
 ErrorCode Router::sendLocal(meshtastic_MeshPacket *p, RxSource src)
@@ -178,7 +181,7 @@ ErrorCode Router::sendLocal(meshtastic_MeshPacket *p, RxSource src)
         }
 
         if (!p->channel) { // don't override if a channel was requested
-            p->channel = nodeDB.getNodeChannel(p->to);
+            p->channel = nodeDB.getMeshNodeChannel(p->to);
             LOG_DEBUG("localSend to channel %d\n", p->channel);
         }
 
@@ -211,8 +214,10 @@ ErrorCode Router::send(meshtastic_MeshPacket *p)
     if (!config.lora.override_duty_cycle && myRegion->dutyCycle < 100) {
         float hourlyTxPercent = airTime->utilizationTXPercent();
         if (hourlyTxPercent > myRegion->dutyCycle) {
+#ifdef DEBUG_PORT
             uint8_t silentMinutes = airTime->getSilentMinutes(hourlyTxPercent, myRegion->dutyCycle);
             LOG_WARN("Duty cycle limit exceeded. Aborting send for now, you can send again in %d minutes.\n", silentMinutes);
+#endif
             meshtastic_Routing_Error err = meshtastic_Routing_Error_DUTY_CYCLE_LIMIT;
             if (getFrom(p) == nodeDB.getNodeNum()) { // only send NAK to API, not to the mesh
                 abortSendAndNak(err, p);
@@ -246,7 +251,6 @@ ErrorCode Router::send(meshtastic_MeshPacket *p)
 
         bool shouldActuallyEncrypt = true;
 
-#if HAS_WIFI || HAS_ETHERNET
         if (moduleConfig.mqtt.enabled) {
             // check if we should send decrypted packets to mqtt
 
@@ -270,7 +274,6 @@ ErrorCode Router::send(meshtastic_MeshPacket *p)
             if (mqtt && !shouldActuallyEncrypt)
                 mqtt->onSend(*p, chIndex);
         }
-#endif
 
         auto encodeResult = perhapsEncode(p);
         if (encodeResult != meshtastic_Routing_Error_NONE) {
@@ -278,14 +281,12 @@ ErrorCode Router::send(meshtastic_MeshPacket *p)
             return encodeResult; // FIXME - this isn't a valid ErrorCode
         }
 
-#if HAS_WIFI || HAS_ETHERNET
         if (moduleConfig.mqtt.enabled) {
             // the packet is now encrypted.
             // check if we should send encrypted packets to mqtt
             if (mqtt && shouldActuallyEncrypt)
                 mqtt->onSend(*p, chIndex);
         }
-#endif
     }
 
     assert(iface); // This should have been detected already in sendLocal (or we just received a packet from outside)
@@ -403,7 +404,7 @@ meshtastic_Routing_Error perhapsEncode(meshtastic_MeshPacket *p)
             if (compressed_len >= p->decoded.payload.size) {
 
                 LOG_DEBUG("Not using compressing message.\n");
-                // Set the uncompressed payload varient anyway. Shouldn't hurt?
+                // Set the uncompressed payload variant anyway. Shouldn't hurt?
                 // p->decoded.which_payloadVariant = Data_payload_tag;
 
                 // Otherwise we use the compressor
@@ -479,9 +480,9 @@ void Router::perhapsHandleReceived(meshtastic_MeshPacket *p)
     // assert(radioConfig.has_preferences);
     bool ignore = is_in_repeated(config.lora.ignore_incoming, p->from);
 
-    if (ignore)
+    if (ignore) {
         LOG_DEBUG("Ignoring incoming message, 0x%x is in our ignore list\n", p->from);
-    else if (ignore |= shouldFilterReceived(p)) {
+    } else if (ignore |= shouldFilterReceived(p)) {
         LOG_DEBUG("Incoming message was filtered 0x%x\n", p->from);
     }
 

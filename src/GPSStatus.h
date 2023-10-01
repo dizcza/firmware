@@ -55,7 +55,7 @@ class GPSStatus : public Status
 #ifdef GPS_EXTRAVERBOSE
             LOG_WARN("Using fixed latitude\n");
 #endif
-            meshtastic_NodeInfo *node = nodeDB.getNode(nodeDB.getNodeNum());
+            meshtastic_NodeInfoLite *node = nodeDB.getMeshNode(nodeDB.getNodeNum());
             return node->position.latitude_i;
         } else {
             return p.latitude_i;
@@ -68,7 +68,7 @@ class GPSStatus : public Status
 #ifdef GPS_EXTRAVERBOSE
             LOG_WARN("Using fixed longitude\n");
 #endif
-            meshtastic_NodeInfo *node = nodeDB.getNode(nodeDB.getNodeNum());
+            meshtastic_NodeInfoLite *node = nodeDB.getMeshNode(nodeDB.getNodeNum());
             return node->position.longitude_i;
         } else {
             return p.longitude_i;
@@ -81,7 +81,7 @@ class GPSStatus : public Status
 #ifdef GPS_EXTRAVERBOSE
             LOG_WARN("Using fixed altitude\n");
 #endif
-            meshtastic_NodeInfo *node = nodeDB.getNode(nodeDB.getNodeNum());
+            meshtastic_NodeInfoLite *node = nodeDB.getMeshNode(nodeDB.getNodeNum());
             return node->position.altitude;
         } else {
             return p.altitude;
@@ -106,7 +106,7 @@ class GPSStatus : public Status
     bool matches(const GPSStatus *newStatus) const
     {
 #ifdef GPS_EXTRAVERBOSE
-        LOG_DEBUG("GPSStatus.match() new pos@%x to old pos@%x\n", newStatus->p.pos_timestamp, p.pos_timestamp);
+        LOG_DEBUG("GPSStatus.match() new pos@%x to old pos@%x\n", newStatus->p.timestamp, p.timestamp);
 #endif
         return (newStatus->hasLock != hasLock || newStatus->isConnected != isConnected ||
                 newStatus->isPowerSaving != isPowerSaving || newStatus->p.latitude_i != p.latitude_i ||
@@ -138,8 +138,9 @@ class GPSStatus : public Status
                 LOG_DEBUG("New GPS pos@%x:3 lat=%f, lon=%f, alt=%d, pdop=%.2f, track=%.2f, speed=%.2f, sats=%d\n", p.timestamp,
                           p.latitude_i * 1e-7, p.longitude_i * 1e-7, p.altitude, p.PDOP * 1e-2, p.ground_track * 1e-5,
                           p.ground_speed * 1e-2, p.sats_in_view);
-            } else
+            } else {
                 LOG_DEBUG("No GPS lock\n");
+            }
             onNewStatus.notifyObservers(this);
         }
         return 0;

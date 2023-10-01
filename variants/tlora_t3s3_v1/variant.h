@@ -1,6 +1,3 @@
-#undef GPS_RX_PIN
-#undef GPS_TX_PIN
-
 #define HAS_SDCARD
 #define SDCARD_USE_SPI1
 
@@ -9,6 +6,7 @@
 #define BATTERY_PIN 1 // A battery voltage measurement pin, voltage divider connected here to measure battery voltage
 // ratio of voltage divider = 2.0 (R42=100k, R43=100k)
 #define ADC_MULTIPLIER 2.11 // 2.0 + 10% for correction of display undervoltage.
+#define ADC_CHANNEL ADC1_GPIO1_CHANNEL
 
 #define I2C_SDA 18 // I2C pins for this board
 #define I2C_SCL 17
@@ -46,7 +44,8 @@
 #define SX126X_DIO1 33
 #define SX126X_BUSY 34
 #define SX126X_RESET LORA_RESET
-#define SX126X_E22
+#define SX126X_DIO2_AS_RF_SWITCH
+#define SX126X_DIO3_TCXO_VOLTAGE 1.8
 #endif
 
 // per SX128x_Receive_Interrupt/utilities.h

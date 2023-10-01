@@ -139,6 +139,9 @@ static const uint8_t SCK = PIN_SPI_SCK;
 
 #define USE_EINK
 
+// RAKRGB
+#define HAS_NCP5623
+
 /*
  * Wire Interfaces
  */
@@ -183,7 +186,9 @@ static const uint8_t SCK = PIN_SPI_SCK;
 // #define SX126X_TXEN (39)
 // #define SX126X_RXEN (37)
 #define SX126X_POWER_EN (37)
-#define SX126X_E22 // DIO2 controlls an antenna switch and the TCXO voltage is controlled by DIO3
+// DIO2 controlls an antenna switch and the TCXO voltage is controlled by DIO3
+#define SX126X_DIO2_AS_RF_SWITCH
+#define SX126X_DIO3_TCXO_VOLTAGE 1.8
 
 // enables 3.3V periphery like GPS or IO Module
 #define PIN_3V3_EN (34)
@@ -225,6 +230,8 @@ static const uint8_t SCK = PIN_SPI_SCK;
 #define VBAT_RAW_TO_SCALED(x) (REAL_VBAT_MV_PER_LSB * x)
 
 #define HAS_RTC 1
+
+#define RAK_4631 1
 
 #ifdef __cplusplus
 }

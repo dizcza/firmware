@@ -9,6 +9,7 @@
 class RangeTestModule : private concurrency::OSThread
 {
     bool firstTime = 1;
+    unsigned long started = 0;
 
   public:
     RangeTestModule();
@@ -28,7 +29,7 @@ class RangeTestModuleRadio : public SinglePortModule
     uint32_t lastRxID = 0;
 
   public:
-    RangeTestModuleRadio() : SinglePortModule("RangeTestModuleRadio", meshtastic_PortNum_TEXT_MESSAGE_APP)
+    RangeTestModuleRadio() : SinglePortModule("RangeTestModuleRadio", meshtastic_PortNum_RANGE_TEST_APP)
     {
         loopbackOk = true; // Allow locally generated messages to loop back to the client
     }
