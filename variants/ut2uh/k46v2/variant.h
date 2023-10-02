@@ -4,18 +4,8 @@
 
 #define BUTTON_PIN 13
 #define BUTTON_NEED_PULLUP // if set we need to turn on the internal CPU pullup during sleep
-//#define EXT_NOTIFY_OUT 4 // Default pin to use for Ext Notify Plugin.
-
-//#define PIN_BUZZER 25
 
 #define USE_SX1262
-
-#undef RF95_SCK
-#undef RF95_MISO
-#undef RF95_MOSI
-#undef RF95_NSS
-#undef RF95_RXEN
-#undef RF95_TXEN
 
 #define RF95_SCK 15
 #define RF95_MISO 16
@@ -46,3 +36,11 @@
 
 // LCD screens are slow, so slowdown the wipe so it looks better
 #define SCREEN_TRANSITION_FRAMERATE 1 // fps
+
+#define TFT_HEIGHT 240
+#define TFT_WIDTH 320
+#define TFT_OFFSET_X 0
+#define TFT_OFFSET_Y 0
+#define TFT_BUSY -1
+
+#define ILI9341_SPI_HOST VSPI_HOST // VSPI_HOST or HSPI_HOST
