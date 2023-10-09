@@ -53,10 +53,9 @@ void UI::draw()
   auto end = millis();
   draw_time += end - start;
   draw_count++;
-  if (draw_count == 20)
+  if (draw_count == 100)
   {
-    log_d("Drawing time: %ld ms", draw_time / 20);
-    draw_count = 0;
-    draw_time = 0;
+    // print only once
+    log_d("Drawing time: %ld ms", draw_time / 100);
   }
 }

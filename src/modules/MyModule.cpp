@@ -8,25 +8,31 @@
 #include <M5StX.h>
 #include <M5ez.h>
 
-MyModule::MyModule() : SinglePortModule("MyModule", meshtastic_PortNum_PRIVATE_APP), concurrency::OSThread("MyModule"), application(M5.lcd) {}
+MyModule::MyModule() : SinglePortModule("MyModule", meshtastic_PortNum_PRIVATE_APP), concurrency::OSThread("MyModule") {}
 
 void MyModule::setup()
 {
     ez.begin();
+    application = new Application(M5.Lcd);
+    application->begin();
     log_d("ESP.getChipCores() %u", ESP.getChipCores());
     log_d("Running on core %lu", xPortGetCoreID());
     log_d("Heap avail: %lu Kb", esp_get_free_heap_size() / 1024);
-    application.begin();
-    initialized = true;
 }
+
+
+MyModule::~MyModule() {
+    delete application;
+}
+
 
 int32_t MyModule::runOnce()
 {
-    if (!initialized)
+    if (application == NULL)
     {
         this->setup();
     }
-    application.loop();
+    application->loop();
     return 100;
 }
 

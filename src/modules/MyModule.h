@@ -9,14 +9,14 @@
 class MyModule : public SinglePortModule, private concurrency::OSThread
 {
 private:
-  Application application;
-  bool initialized = false;
+  Application *application = NULL;
 
 public:
   /** Constructor
    * name is for debugging output
    */
   MyModule();
+  ~MyModule();
 
 protected:
   /** For reply module we do all of our processing in the (normally optional)
