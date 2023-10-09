@@ -8,8 +8,8 @@ private:
 public:
   uint16_t width;
   uint16_t height;
-  uint16_t *pixels1;
-  uint16_t *pixels2;
+  uint16_t *pixels1 = NULL;
+  uint16_t *pixels2 = NULL;
   uint16_t **rows;
   Bitmap(uint16_t a_width, uint16_t a_height);
   void scroll_left();

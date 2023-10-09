@@ -13,7 +13,8 @@ MyModule::MyModule() : SinglePortModule("MyModule", meshtastic_PortNum_PRIVATE_A
 void MyModule::setup()
 {
     ez.begin();
-    log_d("ESP.getChipCores() %d", ESP.getChipCores());
+    log_d("ESP.getChipCores() %u", ESP.getChipCores());
+    log_d("Running on core %lu", xPortGetCoreID());
     log_d("Heap avail: %lu Kb", esp_get_free_heap_size() / 1024);
     application.begin();
     initialized = true;

@@ -13,11 +13,11 @@ class UI
 {
 private:
   Palette m_palette;
+  TFT_eSPI &m_display;
   Waveform m_waveform;
   Waveform m_stalta_ratio_window;
   GraphicEqualiser m_graphic_equaliser;
   Spectrogram m_spectrogram;
-  TFT_eSPI &m_display;
   RatioMetric m_stalta_ratio;
   unsigned long draw_time = 0;
   int draw_count = 0;

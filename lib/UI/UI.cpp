@@ -11,7 +11,7 @@ UI::UI(TFT_eSPI &display, int window_size) : m_display(display),
 {
   log_d("Display is %d x %d\n", display.width(), display.height());
 
-  m_windows.push_back({m_spectrogram});
+  // m_windows.push_back({m_spectrogram});
   m_windows.push_back({m_waveform, m_graphic_equaliser});
   m_windows.push_back({m_stalta_ratio_window});
 

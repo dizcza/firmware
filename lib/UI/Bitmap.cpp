@@ -12,8 +12,8 @@ uint16_t* Bitmap::alloc_half_size() {
 
 Bitmap::Bitmap(uint16_t a_width, uint16_t a_height) : width(a_width), height(a_height)
 {
-  pixels1 = alloc_half_size();
-  pixels2 = alloc_half_size();
+  // pixels1 = alloc_half_size();
+  // pixels2 = alloc_half_size();
   rows = (uint16_t**) calloc(height, sizeof(uint16_t*));
   for (int i = 0; i < height / 2; i++)
   {

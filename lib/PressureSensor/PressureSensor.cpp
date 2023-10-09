@@ -1,7 +1,9 @@
 #include "PressureSensor.h"
 
 
-PressureSensor::PressureSensor(TwoWire &wirePort) : wire(wirePort) {};
+PressureSensor::PressureSensor(TwoWire &wirePort) : wire(wirePort) {
+    wire.setClock(400000);
+}
 
 bool PressureSensor::ping(uint8_t addr) {
     // The i2c_scanner uses the return value of
@@ -22,6 +24,7 @@ PressureRange PressureSensor::begin() {
     sdp_sensor = new SDP8XX(Address5, DiffPressure, wire);
     PressureRange prange = sdp_sensor->begin();
     if (prange == SDP_NA) {
+        mfr = MANUFACTURER_NONE;
         log_e("No sensor found");
     } else {
         mfr = MANUFACTURER_SDP;
@@ -95,5 +98,5 @@ uint8_t PressureSensor::getPressureScale() {
 
 
 int PressureSensor::getSamplingFreq() {
-    return mfr == MANUFACTURER_SDP ? 1024 : 256;
+    return mfr == MANUFACTURER_SDP ? 512 : 256;
 }

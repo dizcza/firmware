@@ -95,6 +95,8 @@ void SDPSampler::startTimer()
 
     // Start an alarm
     timerAlarmEnable(m_timer);
+
+    log_d("Started timer on core %d", xPortGetCoreID());
 }
 
 bool SDPSampler::begin()

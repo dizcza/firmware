@@ -19,8 +19,8 @@
 
 // This board has different GPS pins than all other boards
 #define HAS_GPS 0
-#undef GPS_RX_PIN
-#undef GPS_TX_PIN
+#define GPS_RX_PIN 0
+#define GPS_TX_PIN 0
 
 // Define if screen should be mirrored left to right
 #define SCREEN_ROTATE
