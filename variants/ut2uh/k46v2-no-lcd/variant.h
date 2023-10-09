@@ -31,16 +31,4 @@
 #define GPS_RX_PIN 0
 #define GPS_TX_PIN 0
 
-// Define if screen should be mirrored left to right
-#define SCREEN_ROTATE
-
-// LCD screens are slow, so slowdown the wipe so it looks better
-#define SCREEN_TRANSITION_FRAMERATE 1 // fps
-
-#define TFT_HEIGHT 240
-#define TFT_WIDTH 320
-#define TFT_OFFSET_X 0
-#define TFT_OFFSET_Y 0
-#define TFT_BUSY -1
-
-#define ILI9341_SPI_HOST VSPI_HOST // VSPI_HOST or HSPI_HOST
+#define HAS_SCREEN 0
