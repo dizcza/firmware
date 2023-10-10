@@ -2,6 +2,8 @@
 #include "concurrency/OSThread.h"
 #include "SinglePortModule.h"
 #include "Application.h"
+#include <M5ez.h>
+
 
 /**
  * A simple example module that just replies with "Message received" to any message it receives.
@@ -10,11 +12,11 @@ class MyModule : public SinglePortModule, private concurrency::OSThread
 {
 private:
   Application *application = NULL;
+  bool started = false;
+  ezMenu topmenu;
+  static void show_spectrogram();
 
 public:
-  /** Constructor
-   * name is for debugging output
-   */
   MyModule();
   ~MyModule();
 

@@ -21,7 +21,6 @@
 static void sdprecord_read_sensor_task(void *);
 
 static TaskHandle_t m_task_read_handle = NULL;
-static const char *TAG = "sdprecord";
 
 void ARDUINO_ISR_ATTR onTimer()
 {
@@ -32,7 +31,6 @@ void ARDUINO_ISR_ATTR onTimer()
 static void sdprecord_read_sensor_task(void *args)
 {
     SDPSampler *sdp_sampler = (SDPSampler *)args;
-    int64_t rtc_counter = 0;
 
     esp_task_wdt_add(NULL);
     sdp_sampler->startTimer();
@@ -83,6 +81,12 @@ bool SDPSampler::readSensor()
  */
 void SDPSampler::startTimer()
 {
+    if (m_timer != NULL) {
+        timerRestart(m_timer);
+        timerStart(m_timer);
+        return;
+    }
+
     m_timer = timerBegin(0, 80, true);
 
     // Edge interrupt (3rd parameter) is not supported.
@@ -116,7 +120,6 @@ void SDPSampler::stop()
     if (m_timer)
     {
         timerStop(m_timer);
-        m_timer = NULL;
     }
     if (m_task_read_handle)
     {

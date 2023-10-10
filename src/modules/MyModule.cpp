@@ -5,16 +5,40 @@
 #include "configuration.h"
 #include "main.h"
 
-#include <M5StX.h>
-#include <M5ez.h>
+#include "esp_task_wdt.h"
 
-MyModule::MyModule() : SinglePortModule("MyModule", meshtastic_PortNum_PRIVATE_APP), concurrency::OSThread("MyModule") {}
+#include <M5StX.h>
+
+
+static MyModule *my_module = NULL;
+
+
+MyModule::MyModule() : SinglePortModule("MyModule", meshtastic_PortNum_PRIVATE_APP), concurrency::OSThread("MyModule"), topmenu("Top Menu") {
+    topmenu.buttons("up # select # down");
+    topmenu.addItem("Spectrogram", show_spectrogram);
+    my_module = this;
+}
+
+
+void MyModule::show_spectrogram() {
+    if (M5.BtnA.read()) {
+        my_module->application->stop();
+        my_module->started = false;
+        return;
+    }
+    if (!my_module->started) {
+        my_module->application->begin();
+        my_module->started = true;
+        return;
+    }
+    my_module->application->loop();
+}
+
 
 void MyModule::setup()
 {
     ez.begin();
     application = new Application(M5.Lcd);
-    application->begin();
     log_d("ESP.getChipCores() %u", ESP.getChipCores());
     log_d("Running on core %lu", xPortGetCoreID());
     log_d("Heap avail: %lu Kb", esp_get_free_heap_size() / 1024);
@@ -28,11 +52,16 @@ MyModule::~MyModule() {
 
 int32_t MyModule::runOnce()
 {
+    esp_task_wdt_reset();
     if (application == NULL)
     {
         this->setup();
     }
-    application->loop();
+    if (!started) {
+        topmenu.runOnce();
+    } else {
+        show_spectrogram();
+    }
     return 100;
 }
 

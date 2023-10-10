@@ -11,12 +11,14 @@ Application::Application(TFT_eSPI &display) :
 
 bool Application::begin()
 {
+  log_d("Application::begin");
   return m_sdp_sampler.begin();
 }
 
 void Application::stop()
 {
   m_sdp_sampler.stop();
+  log_d("Application::stop");
 }
 
 void Application::process_samples()

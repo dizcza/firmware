@@ -13,8 +13,8 @@ class SDPSampler {
     private:
         PressureSensor m_sensor;
         OnlineMean oMean;
-        hw_timer_t* m_timer;
-        QueueHandle_t xQueueRecords;
+        hw_timer_t* m_timer = NULL;
+        QueueHandle_t xQueueRecords = NULL;
         float diff_pressure_buffer[SDPSAMPLER_BUFFER_MAX_SIZE];
 
     public:
